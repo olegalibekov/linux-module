@@ -1,0 +1,87 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/ioctl.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <malloc.h>
+#include <unistd.h>
+#include <stdbool.h>
+
+#define ND_VALUE _IOR('a', 1, struct net_device_names*)
+#define WR_VALUE _IOW('a','a',struct message*)
+
+struct net_device_names {
+    int size;
+    char name[100][30];
+};
+
+struct signal_struct_info {
+    bool valid;
+    int nr_threads;
+    int group_exit_code;
+    int notify_count;
+    int group_stop_count;
+    unsigned int flags;
+};
+
+struct message {
+    struct signal_struct_info *ssi;
+    pid_t pid;
+};
+
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("Not enough arguments. Enter pid\n");
+        return 0;
+    }
+    struct message msg;
+    struct signal_struct_info ssi;
+    msg.pid = atoi(argv[1]);
+    msg.ssi = &ssi;
+
+    int fd;
+    struct net_device_names net_device_names;
+
+    printf("###################################\n");
+    printf("\nOpening Driver\n");
+    fd = open("/dev/etx_device", O_RDWR);
+    if (fd < 0) {
+        printf("Cannot open device file...\n");
+        return 0;
+    }
+
+    if (ioctl(fd, ND_VALUE, (struct net_device_names *) &net_device_names) != 0) {
+        printf("copy to user error\n");
+    } else {
+        int i;
+        for (i = 0; i < net_device_names.size; ++i) {
+            printf("%d net device name is %s\n", i, net_device_names.name[i]);
+        }
+    }
+
+    printf("Writing data to Driver\n");
+    ioctl(fd, WR_VALUE, (struct message *) &msg);
+
+    if (msg.ssi->valid == true) {
+        printf("\nsignal_struct_info for PID %d: \n", msg.pid);
+        printf("\tnr_threads = %d\n", msg.ssi->nr_threads);
+        printf("\tgroup_exit_code = %d\n", msg.ssi->group_exit_code);
+        printf("\tnotify_count = %d\n", msg.ssi->notify_count);
+        printf("\tgroup_stop_count = %d\n", msg.ssi->group_stop_count);
+        printf("\tflags = %d\n", msg.ssi->flags);
+    } else printf("\ntask_struct for pid %d is NULL. Can not get any information\n", msg.pid);
+
+    printf("\nClosing Driver\n");
+
+    printf("###################################\n");
+    close(fd);
+}

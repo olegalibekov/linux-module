@@ -1,11 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
 #include <sys/ioctl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -16,7 +11,7 @@
 #include <stdbool.h>
 
 #define ND_VALUE _IOR('a', 1, struct net_device_names*)
-#define WR_VALUE _IOW('a','a',struct message*)
+#define WR_VALUE _IOW('a', 2, struct signal_struct_message*)
 
 struct net_device_names {
     int size;
@@ -32,35 +27,33 @@ struct signal_struct_info {
     unsigned int flags;
 };
 
-struct message {
+struct signal_struct_message {
     struct signal_struct_info *ssi;
     pid_t pid;
 };
 
-
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        printf("Not enough arguments. Enter pid\n");
-        return 0;
-    }
-    struct message msg;
-    struct signal_struct_info ssi;
-    msg.pid = atoi(argv[1]);
-    msg.ssi = &ssi;
-
+  
     int fd;
-    struct net_device_names net_device_names;
 
-    printf("###################################\n");
-    printf("\nOpening Driver\n");
+
+
+    printf("\n##################################\n");
+    printf("\nOpening Driver...\n");
+
     fd = open("/dev/etx_device", O_RDWR);
     if (fd < 0) {
         printf("Cannot open device file...\n");
         return 0;
     }
-
+    printf("Writing data...\n\n");
+    
+    /* net_device */
+    
+    struct net_device_names net_device_names;
+        
     if (ioctl(fd, ND_VALUE, (struct net_device_names *) &net_device_names) != 0) {
-        printf("copy to user error\n");
+        printf("Copy to user error\n");
     } else {
         int i;
         for (i = 0; i < net_device_names.size; ++i) {
@@ -68,20 +61,33 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    printf("Writing data to Driver\n");
-    ioctl(fd, WR_VALUE, (struct message *) &msg);
+    printf("\n----------------------------------\n");
+    
+    /* signal_struct */
+    
+    if (argc < 2) {
+        printf("\nNot enough arguments for signal_struct. Enter PID\n");
+    } else {
+    
+    	struct signal_struct_message msg;
+    	struct signal_struct_info ssi;
 
-    if (msg.ssi->valid == true) {
-        printf("\nsignal_struct_info for PID %d: \n", msg.pid);
-        printf("\tnr_threads = %d\n", msg.ssi->nr_threads);
-        printf("\tgroup_exit_code = %d\n", msg.ssi->group_exit_code);
-        printf("\tnotify_count = %d\n", msg.ssi->notify_count);
-        printf("\tgroup_stop_count = %d\n", msg.ssi->group_stop_count);
-        printf("\tflags = %d\n", msg.ssi->flags);
-    } else printf("\ntask_struct for pid %d is NULL. Can not get any information\n", msg.pid);
+    	msg.pid = atoi(argv[1]);
+    	msg.ssi = &ssi;
+    
+   	 ioctl(fd, WR_VALUE, (struct signal_struct_message *) &msg);
+    	if (msg.ssi->valid == true) {
+        	printf("\nsignal_struct_info for PID %d: \n", msg.pid);
+        	printf("\tnr_threads = %d\n", msg.ssi->nr_threads);
+       	 printf("\tgroup_exit_code = %d\n", msg.ssi->group_exit_code);
+        	printf("\tnotify_count = %d\n", msg.ssi->notify_count);
+       	 printf("\tgroup_stop_count = %d\n", msg.ssi->group_stop_count);
+        	printf("\tflags = %d\n", msg.ssi->flags);
+    	} else printf("\ntask_struct for pid %d is NULL. Can not get any information\n", msg.pid);
+    
+    }
 
-    printf("\nClosing Driver\n");
-
-    printf("###################################\n");
+    printf("\nClosing Driver...\n");
+    printf("\n###################################\n\n");
     close(fd);
 }
